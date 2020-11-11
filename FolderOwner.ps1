@@ -4,6 +4,9 @@ $SearchDepth = Read-Host -Prompt "Enter search depth"
 
 
 function Get-Groups{
+    param(
+    $i
+    )
     $acls = (Get-Acl).AccessToString
     $groups = ""
 
@@ -27,7 +30,7 @@ $progress = 0
 $dirs 
 $totalcount = $dirs.Count
 foreach($i in $dirs){
-    $i | Select-Object Name,@{Name="Owner";Expression={(Get-ACL $_.Fullname).Owner}},@{Name="Groups";Expression={Get-Groups}},CreationTime,LastAccessTime | Export-Csv -Path $LogPath\FileFolderOwner.csv -NoTypeInformation -Encoding utf8 -Force -Append -Verbose | Write-Output
+    $i | Select-Object Name,@{Name="Owner";Expression={(Get-ACL $_.Fullname).Owner}},@{Name="Groups";Expression={Get-Groups $i}},CreationTime,LastAccessTime | Export-Csv -Path $LogPath\FileFolderOwner.csv -NoTypeInformation -Encoding utf8 -Force -Append -Verbose | Write-Output
     $progress += 1
     $p = ($progress/$totalcount)*100 
     $p = [math]::Round($p)
