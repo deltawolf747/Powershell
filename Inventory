@@ -1,0 +1,134 @@
+function Global:Set-MaxWindowSize 
+{ 
+     
+    if ($Host.Name -match "console") 
+       { 
+        $MaxHeight = $host.UI.RawUI.MaxPhysicalWindowSize.Height 
+        $MaxWidth = $host.UI.RawUI.MaxPhysicalWindowSize.Width 
+ 
+        $MyBuffer = $Host.UI.RawUI.BufferSize 
+        $MyWindow = $Host.UI.RawUI.WindowSize 
+     
+        $MyWindow.Height = ($MaxHeight) 
+        $MyWindow.Width = ($Maxwidth-2) 
+ 
+        $MyBuffer.Height = (9999) 
+        $MyBuffer.Width = ($Maxwidth-2) 
+ 
+        $host.UI.RawUI.set_bufferSize($MyBuffer) 
+        $host.UI.RawUI.set_windowSize($MyWindow) 
+       } 
+ 
+    $CurrentUser = [Security.Principal.WindowsIdentity]::GetCurrent() 
+    $CurrentUserPrincipal = New-Object Security.Principal.WindowsPrincipal $CurrentUser 
+    $Adminrole = [Security.Principal.WindowsBuiltinRole]::Administrator 
+    If (($CurrentUserPrincipal).IsInRole($AdminRole)){$Elevated = "Administrator"}     
+     
+    $Title = $Elevated + " $ENV:USERNAME".ToUpper() + ": $($Host.Name) " + $($Host.Version) + " - " + (Get-Date).toshortdatestring()  
+    $Host.UI.RawUI.set_WindowTitle($Title) 
+ 
+} 
+set-maxwindowsize
+
+
+write-host "This is an attempt to audit system location. 
+Failure to report location will result in computer being disabled."
+write-host ""
+
+function location-audit{
+$system_a = get-wmiobject -class win32_computersystem
+$system_b = Get-WmiObject -Class win32_bios
+$computer_SN = $system_b.SerialNumber
+$computer_name = $system_a.name 
+$computer_manufacturer = $system_a.manufacturer 
+$computer_model = $system_a.model 
+$os = Get-WmiObject -Class win32_operatingsystem 
+$harddrive_a = get-wmiobject -class win32_diskdrive 
+$HD_model = $harddrive_a.model 
+$HD_SN = $harddrive_a.serialnumber 
+$username = $system_a.username -replace "^(.*)\\",""
+$date = get-date -format yyyymmdd
+$building = read-host -prompt "Please enter building number"
+$office= read-host -prompt "Please enter your room/office number"
+$computer_owner = read-host -prompt "Are you the owner of this computer? Y/N"
+if($computer_owner -like "y"){
+    $computer_owner = "Yes"
+    }
+else{
+    $computer_owner = "No"
+    }
+
+
+
+$inv = new-object -typename psobject
+$inv | add-member -membertype noteproperty -name ComputerName -value $computer_name
+$inv | add-member -membertype noteproperty -name Manufacturer -value $computer_manufacturer
+$inv | add-member -membertype noteproperty -name Model -value $computer_model
+$inv | add-member -membertype noteproperty -name ComputerSN -value $computer_SN
+$inv | add-member -membertype noteproperty -name OS -value $os.caption
+$inv | add-member -membertype noteproperty -name HDModel -value $HD_model
+$inv | add-member -membertype noteproperty -name HDSerial -value $HD_SN
+$inv | add-member -membertype noteproperty -name Username -value $username
+$inv | add-member -membertype noteproperty -name Building -value $building
+$inv | add-member -membertype noteproperty -name Room -value $office
+$inv | add-member -membertype noteproperty -name OwnerStatus -value $computer_owner
+$inv | add-member -membertype noteproperty -name LastUpdated -value $date
+
+
+$inv
+$commit =  read-host -Prompt "Is the above data correct? Y/N"
+if ( $commit -like "n"){
+   location-audit
+    
+    }
+elseif($commit -like "y"){
+    commit-data
+    }
+else{
+    }
+}
+
+function commit-data{
+$erroractionpreference = "SilentlyContinue"
+cd INVENTORY_PATH
+$a = New-Object -comobject Excel.Application
+$a.visible = $True 
+$xlLastCell = [Microsoft.Office.Interop.Excel.Constants]::xlLastCell
+$b = $a.Workbooks.Open(SHEET)
+$c = $b.Worksheets.Item(1)
+
+
+$d = $c.UsedRange
+$d.Interior.ColorIndex = 19
+$d.Font.ColorIndex = 11
+$d.Font.Bold = $True
+
+$objRange = $c.UsedRange
+$lastRow = $objRange.SpecialCells($xlLastCell).Row
+$c.cells($lastRow,1).Select()
+$lastrownum = $objRange.SpecialCells(11).row
+
+$lastRow += 1
+$z = $lastRow -as [int]
+#$c.cells($lastRow,1).value = $z +1
+$c.cells($lastRow,2).value = $inv.ComputerName
+$c.cells($lastRow,3).value = $inv.Model
+$c.cells($lastRow,4).value = $inv.ComputerSN
+$c.cells($lastRow,5).value = $inv.OS
+$c.cells($lastRow,6).value = $inv.HDModel
+$c.cells($lastRow,7).value = $inv.HDSerial
+$c.cells($lastRow,8).value = $inv.Username
+$c.cells($lastRow,9).value = $inv.Building
+$c.cells($lastRow,10).value = $inv.Room
+$c.cells($lastRow,11).value = $inv.OwnerStatus
+$c.cells($lastRow,12).value = $inv.LastUpdated
+$inv
+
+$b.Save()
+$b.Close()
+#$Excel.Quit()
+#Stop-Process -name EXCEL
+}
+location-audit
+
+
