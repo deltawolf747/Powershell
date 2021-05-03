@@ -1,0 +1,152 @@
+ $ErrorActionPreference= 'silentlycontinue'
+ $username = Get-WmiObject -class Win32_ComputerSystem | select username
+ $currentuser = $username.username -replace '^(.*)\\','' 
+ $path = "C:\Users\$currentuser"
+ $targetpath = "$currentuser"
+ $restorepath = "C:\Restore Files"
+ 
+
+
+
+cd C:\Users\$currentuser
+New-Item -Path "C:\Restore Files" -ItemType Directory
+New-Item -Path "$currentuser" -ItemType Directory
+ 
+
+
+ 
+  
+Add-Type -Name Window -Namespace Console -MemberDefinition '
+[DllImport("Kernel32.dll")]
+public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")]
+public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
+'
+$consolePtr = [Console.Window]::GetConsoleWindow()
+[Console.Window]::ShowWindow($consolePtr, 0)
+
+Add-Type -AssemblyName System.Windows.Forms
+[System.Windows.Forms.Application]::EnableVisualStyles()
+$PowerBackUp                     = New-Object system.Windows.Forms.Form
+$PowerBackUp.ClientSize          = '600,150'
+$PowerBackUp.BackColor           = "White"
+$PowerBackUp.text                = "PowerBackUp"
+$PowerBackUp.TopMost             = $true
+$PowerBackUp.StartPosition       = "CenterScreen"
+$PowerBackUp.FormBorderStyle     = 'Fixed3D'
+$PowerBackUp.MinimizeBox         = "$false"
+$PowerBackUp.MaximizeBox         = "$false"
+
+$progressbar                     = new-Object System.Windows.Forms.ProgressBar
+$progressbar.Name                = "Progress Bar"
+$progressbar.Value               = 0 
+$progressbar.Style               = "Continuous"
+$progressbar.Height              = 25
+$progressbar.Width               = 262
+$progressbar.location            = new-object System.Drawing.Point(25,100)
+$PowerBackUp.Controls.Add($progressbar)
+
+$progressbar2                     = new-Object System.Windows.Forms.ProgressBar
+$progressbar2.Name                = "Progress Bar"
+$progressbar2.
+$progressbar2.Value               = 0 
+$progressbar2.Style               = "Continuous"
+$progressbar2.Height              = 25
+$progressbar2.Width               = 262
+$progressbar2.location            = new-object System.Drawing.Point(312.5,100)
+$PowerBackUp.Controls.Add($progressbar2)
+
+$label1                           = New-Object system.Windows.Forms.Label
+$label1.Text                      = "Status: "
+$label1.Width                     = 262
+$label1.Height                    = 15
+$label1.location            = new-object System.Drawing.Point(25,80)
+$label1.Font                      = "Verdana"
+
+$PowerBackUp.controls.add($label1)
+
+$label2                           = New-Object system.Windows.Forms.Label
+$label2.Text                      = "Status: "
+$label2.Width                     = 262
+$label2.Height                    = 15
+$label2.location            = new-object System.Drawing.Point(312.5,80)
+$label2.Font                      = "Verdana"
+
+$PowerBackUp.controls.add($label2)
+
+$Button                          = New-Object system.Windows.Forms.Button
+$Button.BackColor                = "#4a90e2"
+$Button.text                     = "Start Backup "
+$Button.width                    = 262.5
+$Button.height                   = 50
+$Button.location                 = New-Object System.Drawing.Point(25,25)
+$Button.Font                     = 'Microsoft Sans Serif,10,style=Bold'
+$PowerBackUp.Controls.Add($Button)
+
+$Button2                          = New-Object system.Windows.Forms.Button
+$Button2.BackColor                = "#4a90e2"
+$Button2.text                     = "Start Restore "
+$Button2.width                    = 262.5
+$Button2.height                   = 50
+$Button2.location                 = New-Object System.Drawing.Point(312.5,25)
+$Button2.Font                     = 'Microsoft Sans Serif,10,style=Bold'
+$PowerBackUp.Controls.Add($Button2)
+
+
+     function File-Backup{
+
+      $items = Get-ChildItem -Path $path -Recurse -Attributes Directory | ?{ $_.PsIsContainer -and $_.FullName -notmatch 'AppData'}
+        foreach($item in $items){
+        copy-item $item -Destination $targetpath -Recurse | ?{ $_.PsIsContainer -and $_.FullName -notmatch 'AppData' } | ?{$_ -is [System.IO.FileInfo]}    
+        $i++
+        [int]$pct = ($i/$items.count)*100
+        $progressbar.value = $pct
+        $label1.text = "Status: " + $pct + "%"
+        $listbox.Items.Add("Item copied: " + $item)
+    }
+    }
+
+    function File-Restore{
+
+      $items = Get-ChildItem -Path $targetpath -Recurse -Attributes Directory | ?{ $_.PsIsContainer -and $_.FullName -notmatch 'AppData'}
+        foreach($item in $items){
+        copy-item $item -Destination $restorepath -Recurse | ?{ $_.PsIsContainer -and $_.FullName -notmatch 'AppData' } | ?{$_ -is [System.IO.FileInfo]}    
+        $i++
+        [int]$pct = ($i/$items.count)*100
+        $progressbar2.value = $pct
+        $label2.text = "Status: " + $pct + "%" 
+        $listbox.Items.Add("Item copied: " + $item)
+ 
+    }
+   
+    }
+ 
+ 
+    
+
+$Button.Add_Click(
+    {
+        $Button.text = "Backup in progress..."
+        $PowerBackUp.Text = "In progress. Please wait ... "
+        File-Backup
+        $Button.text = "Backup complete."
+        $PowerBackUp.Text = "Task complete."
+        [System.Windows.Forms.MessageBox]::Show("Back Up is complete.")
+        }
+        )
+
+
+
+        $Button2.Add_Click(
+    {
+        $Button.text = "Restore in progress..."
+        $PowerBackUp.Text = "In progress. Please wait ... "
+        File-Restore
+        $Button.text = "Restore complete."
+        $PowerBackUp.Text = "Task complete."
+        [System.Windows.Forms.MessageBox]::Show("Restore is complete.")
+        }
+        )
+$PowerBackUp.controls.AddRange(@($Button,$Button2,$TextBox1,$TextBox2,$TextBox3,$TextBox4,$TextBox5,$ProgressBar1))
+$PowerBackUp.Add_Shown({$PowerBackUp.Activate()})
+$PowerBackUp.ShowDialog()
